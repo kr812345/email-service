@@ -4,13 +4,16 @@
 use std::net::SocketAddr;
 
 use anyhow::Context;
-use axum::{Router, routing::get};
+use axum::{Router, response::Html, routing::get};
 use rmcp::transport::streamable_http_server::{
     StreamableHttpServerConfig, StreamableHttpService, session::local::LocalSessionManager,
 };
 use tower_http::validate_request::ValidateRequestHeaderLayer;
 
 use crate::server::EmailService;
+
+/// Landing page, embedded at compile time — the binary stays self-contained.
+const LANDING_HTML: &str = include_str!("../web/index.html");
 
 /// Serve MCP over streamable HTTP at `/mcp`, protected by a bearer token.
 /// `/healthz` is intentionally unauthenticated for uptime checks.
@@ -42,7 +45,9 @@ pub async fn serve(
         .nest_service("/mcp", mcp_service)
         .layer(auth_layer);
 
+    // Landing page + health check are public; only /mcp requires the token.
     let app = Router::new()
+        .route("/", get(|| async { Html(LANDING_HTML) }))
         .route("/healthz", get(|| async { "ok" }))
         .merge(mcp_router);
 

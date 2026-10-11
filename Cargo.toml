@@ -7,7 +7,7 @@ license = "MIT"
 keywords = ["mcp", "model-context-protocol", "email", "resend", "ai-agent"]
 categories = ["network-programming", "email"]
 readme = "README.md"
-# repository = "https://github.com/<your-handle>/email_service" # set once published
+repository = "https://github.com/kr812345/email-service"
 exclude = [".env*", "senders.json", ".github/"]
 
 [dependencies]

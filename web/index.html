@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>email-service — Let your AI agent send email</title>
+  <meta name="description" content="An open-source MCP server that lets AI agents send email through Resend. Use the hosted version or self-host in minutes." />
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100 font-sans antialiased">
+
+  <!-- GitHub link -->
+  <a href="https://github.com/kr812345/email-service" target="_blank" rel="noopener"
+     aria-label="GitHub repository"
+     class="absolute top-6 right-6 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white transition-colors">
+    <svg viewBox="0 0 16 16" width="28" height="28" fill="currentColor" aria-hidden="true">
+      <path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/>
+    </svg>
+  </a>
+
+  <main class="min-h-screen flex items-center justify-center px-6">
+    <div class="w-full max-w-2xl text-center">
+
+      <h1 class="text-4xl sm:text-5xl font-semibold tracking-tight">email-service</h1>
+      <p class="mt-4 text-lg text-neutral-600 dark:text-neutral-400">
+        Let your AI agent send email. An open-source
+        <a href="https://modelcontextprotocol.io" class="underline underline-offset-4 hover:text-neutral-900 dark:hover:text-white">MCP</a>
+        server for <a href="https://resend.com" class="underline underline-offset-4 hover:text-neutral-900 dark:hover:text-white">Resend</a>.
+      </p>
+
+      <!-- Tabs -->
+      <div class="mt-10 inline-flex rounded-lg border border-neutral-200 dark:border-neutral-800 p-1 text-sm">
+        <button id="tab-hosted" onclick="showTab('hosted')"
+          class="px-4 py-1.5 rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900">Hosted</button>
+        <button id="tab-selfhost" onclick="showTab('selfhost')"
+          class="px-4 py-1.5 rounded-md text-neutral-600 dark:text-neutral-400">Self-hosted</button>
+      </div>
+
+      <!-- Snippet -->
+      <div class="relative mt-4 text-left">
+        <button onclick="copySnippet()" id="copy-btn"
+          class="absolute top-3 right-3 text-xs px-2.5 py-1.5 rounded-md border border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors">
+          Copy
+        </button>
+        <pre class="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 p-5 overflow-x-auto text-sm leading-relaxed"><code id="snippet"></code></pre>
+      </div>
+
+      <p id="tab-note" class="mt-4 text-sm text-neutral-500 dark:text-neutral-500"></p>
+
+      <p class="mt-10 text-sm text-neutral-400 dark:text-neutral-600">
+        Paste the snippet into your AI agent (Cursor, Claude, …) — it does the rest.
+      </p>
+    </div>
+  </main>
+
+  <footer class="absolute bottom-4 w-full text-center text-xs text-neutral-400 dark:text-neutral-600">
+    <a href="https://github.com/kr812345/email-service/blob/main/LICENSE" class="hover:underline">MIT</a> ·
+    <a href="https://github.com/kr812345/email-service" class="hover:underline">GitHub</a>
+  </footer>
+
+<script>
+const REPO = "https://github.com/kr812345/email-service";
+
+const snippets = {
+  hosted: {
+    code: `Add this MCP server to my client config:
+
+{
+  "mcpServers": {
+    "email": {
+      "url": "https://email.itskrishna.live/mcp",
+      "headers": { "Authorization": "Bearer YOUR_TOKEN" }
+    }
+  }
+}
+
+Then send emails for me when I ask.`,
+    note: `Free tier: 5 emails / month. No card. <a href="${REPO}/issues" class="underline underline-offset-4">Request a token →</a>`
+  },
+  selfhost: {
+    code: `Set up this open-source MCP email server for me:
+
+  git clone ${REPO}
+  cd email-service
+  cp senders.example.json senders.json   # add my sender addresses
+  cargo build --release
+
+Register it as an MCP server (stdio) with my Resend API key
+(RESEND_API_KEY in .env). Guide me through it.`,
+    note: `Free forever. Your keys, your domains, your box.`
+  }
+};
+
+function showTab(which) {
+  const active = ["bg-neutral-900","text-white","dark:bg-white","dark:text-neutral-900"];
+  const inactive = ["text-neutral-600","dark:text-neutral-400"];
+  const hosted = document.getElementById("tab-hosted");
+  const selfhost = document.getElementById("tab-selfhost");
+  const [on, off] = which === "hosted" ? [hosted, selfhost] : [selfhost, hosted];
+  on.classList.remove(...inactive); on.classList.add(...active);
+  off.classList.remove(...active); off.classList.add(...inactive);
+  document.getElementById("snippet").textContent = snippets[which].code;
+  document.getElementById("tab-note").innerHTML = snippets[which].note;
+}
+
+async function copySnippet() {
+  const btn = document.getElementById("copy-btn");
+  try {
+    await navigator.clipboard.writeText(document.getElementById("snippet").textContent);
+    btn.textContent = "Copied!";
+  } catch {
+    btn.textContent = "Select + Ctrl+C";
+  }
+  setTimeout(() => (btn.textContent = "Copy"), 1500);
+}
+
+showTab("hosted");
+</script>
+</body>
+</html>

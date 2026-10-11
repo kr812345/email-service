@@ -127,6 +127,20 @@ async fn http_mode_full_flow_with_auth() {
         .unwrap();
     assert!(r.status().is_success());
 
+    // landing page is public HTML
+    let r = client
+        .get(format!("{}/", server.base))
+        .send()
+        .await
+        .unwrap();
+    assert!(r.status().is_success());
+    let html = r.text().await.unwrap();
+    assert!(html.contains("email-service"), "landing page missing title");
+    assert!(
+        html.contains("github.com"),
+        "landing page missing repo link"
+    );
+
     // no auth -> rejected (tower-http answers 403 for a failed header check)
     let r = client
         .post(&mcp)

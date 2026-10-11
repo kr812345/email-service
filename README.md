@@ -26,7 +26,7 @@ The MCP client spawns the binary and talks to it over stdio. The service itself 
 **Prerequisites:** Rust ≥ 1.85, and a [Resend API key](https://resend.com/api-keys) with at least one [verified domain](https://resend.com/domains).
 
 ```bash
-git clone <this-repo> && cd email_service
+git clone https://github.com/kr812345/email-service && cd email-service
 cp senders.example.json senders.json   # then edit: your verified addresses
 cargo build --release
 ```
