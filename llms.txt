@@ -1,0 +1,31 @@
+# email_service
+
+> MCP server (Rust) that lets AI agents send email through Resend. Three tools — list_senders, send_email, get_email_status — over stdio transport. Stateless: no database. Senders are configured in a JSON file, never hardcoded.
+
+Key facts for agents:
+- Install: cargo build --release; register the binary as an MCP server with env RESEND_API_KEY and SENDERS_FILE.
+- Two transports: stdio (default, local agent spawns the binary) or streamable HTTP at /mcp when MCP_HTTP_ADDR is set; HTTP mode requires MCP_AUTH_TOKEN bearer auth. VPS deploy: ./deploy.sh (pm2).
+- senders.json format: [{"id": "me", "email": "you@yourdomain.com", "display_name": "Your Name"}]; ids are lowercase + hyphens, emails must use Resend-verified domains.
+- send_email requires from/to/subject and text or html; max 50 recipients, 20 sends/minute rate limit.
+- get_email_status takes the Resend email id and returns its JSON including last_event.
+- Validation rejects malformed addresses, CR/LF in subjects, and non-allowlisted senders before any network call.
+
+## Docs
+
+- [README.md](README.md): full setup, configuration reference, tools reference, security model, FAQ
+- [senders.example.json](senders.example.json): sender registry template
+- [.env.example](.env.example): environment variable reference
+
+## Source
+
+- [src/main.rs](src/main.rs): entry point, env loading, stdio/HTTP mode selection
+- [src/http.rs](src/http.rs): streamable HTTP transport with bearer auth (/mcp) and /healthz
+- [src/server.rs](src/server.rs): MCP tool definitions (list_senders, send_email, get_email_status)
+- [src/senders.rs](src/senders.rs): sender registry loading and validation
+- [src/validation.rs](src/validation.rs): email/subject/body/id validation rules
+- [src/resend.rs](src/resend.rs): Resend API client (HTTPS-only, timeouts)
+- [src/ratelimit.rs](src/ratelimit.rs): fixed-window send rate limiter
+- [tests/e2e.rs](tests/e2e.rs): end-to-end tests over stdio with a mock Resend API
+- [tests/e2e_http.rs](tests/e2e_http.rs): end-to-end tests over streamable HTTP including auth
+- [deploy.sh](deploy.sh): VPS deployment script (build + pm2)
+- [ecosystem.config.cjs](ecosystem.config.cjs): pm2 process definition

@@ -1,0 +1,17 @@
+[
+  {
+    "id": "me",
+    "email": "you@yourdomain.com",
+    "display_name": "Your Name"
+  },
+  {
+    "id": "support",
+    "email": "support@yourdomain.com",
+    "display_name": "Your App Support"
+  },
+  {
+    "id": "noreply",
+    "email": "noreply@yourdomain.com",
+    "display_name": "Your App"
+  }
+]

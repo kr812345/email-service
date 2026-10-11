@@ -1,0 +1,33 @@
+[package]
+name = "email_service"
+version = "0.1.0"
+edition = "2024"
+description = "MCP server that lets AI agents send email through Resend — configurable senders, strict validation, rate limiting, zero hardcoded addresses"
+license = "MIT"
+keywords = ["mcp", "model-context-protocol", "email", "resend", "ai-agent"]
+categories = ["network-programming", "email"]
+readme = "README.md"
+# repository = "https://github.com/<your-handle>/email_service" # set once published
+exclude = [".env*", "senders.json", ".github/"]
+
+[dependencies]
+anyhow = "1.0.104"
+axum = "0.8.9"
+dotenvy = "0.15.7"
+reqwest = { version = "0.13.5", default-features = false, features = ["json", "rustls"] }
+rmcp = { version = "3.5.1", features = ["server", "transport-io", "schemars", "transport-streamable-http-server"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.152"
+tokio = { version = "1.53.2", features = ["full"] }
+tower-http = { version = "0.7.1", features = ["validate-request"] }
+tracing = "0.1.44"
+tracing-subscriber = "0.3.23"
+
+[dev-dependencies]
+tempfile = "3.27.0"
+wiremock = "0.6"
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+strip = "symbols"

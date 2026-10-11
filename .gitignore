@@ -1,0 +1,4 @@
+/target
+.env
+# Local sender registry — never commit real addresses.
+senders.json
