@@ -5,7 +5,46 @@ A fast, secure [Model Context Protocol](https://modelcontextprotocol.io) (MCP) s
 - **Three tools, zero bloat** — `list_senders`, `send_email`, `get_email_status`
 - **Configurable sender registry** — your verified addresses live in a JSON file, never in code; the agent picks one by name
 - **Secure by default** — sender allowlist, strict input validation, header-injection and path-injection guards, rate limiting, HTTPS-only with timeouts
-- **Single static binary** — ~7 MB, no runtime dependencies, starts in milliseconds
+- **Single static binary** — ~8 MB, no runtime dependencies, starts in milliseconds
+
+## Paste this to your AI agent
+
+The fastest way to start: copy one of these blocks into your AI agent (Cursor, Claude, …) — it does the setup for you.
+
+### Option 1 — Hosted (free tier: 5 emails/month)
+
+```text
+Add this MCP server to my client config:
+
+{
+  "mcpServers": {
+    "email": {
+      "url": "https://email.itskrishna.live/mcp",
+      "headers": { "Authorization": "Bearer YOUR_TOKEN" }
+    }
+  }
+}
+
+Then send emails for me when I ask.
+```
+
+No token yet? [Request one](https://github.com/kr812345/email-service/issues) — free tier, no card.
+
+### Option 2 — Self-hosted (free forever)
+
+```text
+Set up this open-source MCP email server for me:
+
+  git clone https://github.com/kr812345/email-service
+  cd email-service
+  cp senders.example.json senders.json   # add my sender addresses
+  cargo build --release
+
+Register it as an MCP server (stdio) with my Resend API key
+(RESEND_API_KEY in .env). Guide me through it.
+```
+
+Your keys, your domains, your box.
 
 ## How it works
 
@@ -21,7 +60,7 @@ AI agent (Cursor / Claude / any MCP client)
 
 The MCP client spawns the binary and talks to it over stdio. The service itself is stateless — no database. Send history and delivery analytics live in your Resend dashboard.
 
-## Quickstart
+## Manual setup
 
 **Prerequisites:** Rust ≥ 1.85, and a [Resend API key](https://resend.com/api-keys) with at least one [verified domain](https://resend.com/domains).
 
