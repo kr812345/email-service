@@ -1,0 +1,62 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    name: Lint & test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+      - name: Format
+        run: cargo fmt --check
+      - name: Lint
+        run: cargo clippy --all-targets -- -D warnings
+      - name: Test
+        run: cargo test
+
+  deploy:
+    name: Deploy to VPS
+    needs: ci
+    # Enabled once secrets are configured: gh variable set DEPLOY_ENABLED --body true
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build release binary
+        run: cargo build --release --locked
+
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          echo "${{ secrets.VPS_HOST_KEY }}" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Upload binary
+        run: >
+          scp -i ~/.ssh/deploy_key -P "${{ secrets.VPS_PORT }}"
+          target/release/email_service
+          "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ secrets.DEPLOY_PATH }}/target/release/email_service.new"
+
+      - name: Swap, reload, health-check (rollback on failure)
+        run: >
+          ssh -i ~/.ssh/deploy_key -p "${{ secrets.VPS_PORT }}"
+          "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}"
+          "cd '${{ secrets.DEPLOY_PATH }}' && git pull --ff-only || true; bash scripts/ci-deploy.sh"
