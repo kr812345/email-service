@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>email-service — Let your AI agent send email</title>
-  <meta name="description" content="An open-source MCP server that lets AI agents send email through Resend. Use the hosted version or self-host in minutes." />
+  <title>email-service — Let your AI agent or backend send email</title>
+  <meta name="description" content="An open-source MCP & REST server that lets AI agents and backend services send email through Resend. Use the hosted version or self-host in minutes." />
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100 font-sans antialiased">
@@ -23,15 +23,17 @@
 
       <h1 class="text-4xl sm:text-5xl font-semibold tracking-tight">email-service</h1>
       <p class="mt-4 text-lg text-neutral-600 dark:text-neutral-400">
-        Let your AI agent send email. An open-source
+        Let your AI agent or backend send email. An open-source
         <a href="https://modelcontextprotocol.io" class="underline underline-offset-4 hover:text-neutral-900 dark:hover:text-white">MCP</a>
-        server for <a href="https://resend.com" class="underline underline-offset-4 hover:text-neutral-900 dark:hover:text-white">Resend</a>.
+        &amp; REST server for <a href="https://resend.com" class="underline underline-offset-4 hover:text-neutral-900 dark:hover:text-white">Resend</a>.
       </p>
 
       <!-- Tabs -->
       <div class="mt-10 inline-flex rounded-lg border border-neutral-200 dark:border-neutral-800 p-1 text-sm">
         <button id="tab-hosted" onclick="showTab('hosted')"
-          class="px-4 py-1.5 rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900">Hosted</button>
+          class="px-4 py-1.5 rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900">Hosted MCP</button>
+        <button id="tab-rest" onclick="showTab('rest')"
+          class="px-4 py-1.5 rounded-md text-neutral-600 dark:text-neutral-400">Direct POST</button>
         <button id="tab-selfhost" onclick="showTab('selfhost')"
           class="px-4 py-1.5 rounded-md text-neutral-600 dark:text-neutral-400">Self-hosted</button>
       </div>
@@ -48,7 +50,7 @@
       <p id="tab-note" class="mt-4 text-sm text-neutral-500 dark:text-neutral-500"></p>
 
       <p class="mt-10 text-sm text-neutral-400 dark:text-neutral-600">
-        Paste the snippet into your AI agent (Cursor, Claude, …) — it does the rest.
+        Use with any MCP client (Cursor, Claude, …) or call <code>POST /send</code> directly from your backend.
       </p>
     </div>
   </main>
@@ -77,6 +79,18 @@ const snippets = {
 Then send emails for me when I ask.`,
     note: `Free tier: 5 emails / month. No card. <a href="${REPO}/issues" class="underline underline-offset-4">Request a token →</a>`
   },
+  rest: {
+    code: `curl -X POST https://email.itskrishna.live/send \\
+  -H "Authorization: Bearer YOUR_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "from": "me",
+    "to": "someone@example.com",
+    "subject": "Hello from email-service",
+    "text": "Sent via direct HTTP POST without an MCP client."
+  }'`,
+    note: `Direct REST endpoint — same sender allowlist, validation, and rate limits.`
+  },
   selfhost: {
     code: `Set up this open-source MCP email server for me:
 
@@ -94,11 +108,16 @@ Register it as an MCP server (stdio) with my Resend API key
 function showTab(which) {
   const active = ["bg-neutral-900","text-white","dark:bg-white","dark:text-neutral-900"];
   const inactive = ["text-neutral-600","dark:text-neutral-400"];
-  const hosted = document.getElementById("tab-hosted");
-  const selfhost = document.getElementById("tab-selfhost");
-  const [on, off] = which === "hosted" ? [hosted, selfhost] : [selfhost, hosted];
-  on.classList.remove(...inactive); on.classList.add(...active);
-  off.classList.remove(...active); off.classList.add(...inactive);
+  for (const key of ["hosted", "rest", "selfhost"]) {
+    const btn = document.getElementById("tab-" + key);
+    if (key === which) {
+      btn.classList.remove(...inactive);
+      btn.classList.add(...active);
+    } else {
+      btn.classList.remove(...active);
+      btn.classList.add(...inactive);
+    }
+  }
   document.getElementById("snippet").textContent = snippets[which].code;
   document.getElementById("tab-note").innerHTML = snippets[which].note;
 }

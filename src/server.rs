@@ -1,4 +1,4 @@
-//! MCP service exposing the email tools.
+//! MCP service exposing the email tools, plus shared send logic for REST.
 
 use std::time::Duration;
 
@@ -8,6 +8,7 @@ use rmcp::{
     model::{CallToolResult, ContentBlock},
     schemars, tool, tool_handler, tool_router,
 };
+use serde::de::{self, Deserializer, SeqAccess, Visitor};
 
 use crate::{
     ratelimit::RateLimiter,
@@ -17,7 +18,50 @@ use crate::{
 };
 
 /// Guardrail against an agent loop blasting emails: max sends per minute.
-const MAX_SENDS_PER_MINUTE: u32 = 20;
+pub const MAX_SENDS_PER_MINUTE: u32 = 20;
+
+/// Allow `"to": "user@example.com"` or `"to": ["user@example.com"]` in JSON.
+fn deserialize_string_or_vec<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct StringOrVec;
+
+    impl<'de> Visitor<'de> for StringOrVec {
+        type Value = Vec<String>;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            formatter.write_str("a string or an array of strings")
+        }
+
+        fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            Ok(vec![value.to_owned()])
+        }
+
+        fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            Ok(vec![value])
+        }
+
+        fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+        where
+            A: SeqAccess<'de>,
+        {
+            let mut vec = Vec::new();
+            while let Some(elem) = seq.next_element()? {
+                vec.push(elem);
+            }
+            Ok(vec)
+        }
+    }
+
+    deserializer.deserialize_any(StringOrVec)
+}
 
 #[derive(Clone)]
 pub struct EmailService {
@@ -31,7 +75,8 @@ pub struct SendEmailParams {
     /// Who to send from: a sender id from `list_senders` (e.g. "me",
     /// "support") or a full sender email address.
     pub from: String,
-    /// Recipient email addresses.
+    /// Recipient email addresses (accepts a single string or array of strings).
+    #[serde(deserialize_with = "deserialize_string_or_vec")]
     pub to: Vec<String>,
     /// Subject line.
     pub subject: String,
@@ -51,6 +96,72 @@ pub struct SendEmailParams {
 pub struct GetEmailStatusParams {
     /// The Resend email id returned by send_email.
     pub id: String,
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct SendOutcome {
+    pub id: String,
+    pub from: String,
+}
+
+#[derive(Debug)]
+pub enum SendFailure {
+    UnknownSender(String),
+    Validation(String),
+    RateLimited(u64),
+    Upstream(String),
+}
+
+impl SendFailure {
+    pub fn message(&self) -> String {
+        match self {
+            Self::UnknownSender(m) | Self::Validation(m) | Self::Upstream(m) => m.clone(),
+            Self::RateLimited(retry_in) => format!(
+                "Rate limit exceeded: max {MAX_SENDS_PER_MINUTE} emails/minute, retry in {retry_in}s."
+            ),
+        }
+    }
+}
+
+impl EmailService {
+    pub fn senders(&self) -> &[Sender] {
+        &self.senders
+    }
+
+    /// Shared send implementation used by both MCP `send_email` and REST `POST /send`.
+    pub async fn send_direct(&self, params: SendEmailParams) -> Result<SendOutcome, SendFailure> {
+        let Some(sender) = senders::resolve(&self.senders, &params.from) else {
+            return Err(SendFailure::UnknownSender(format!(
+                "Unknown sender '{}'. Call list_senders to see available senders.",
+                params.from
+            )));
+        };
+        if let Err(msg) = validation::validate_send(&params) {
+            return Err(SendFailure::Validation(format!("Validation failed: {msg}")));
+        }
+        if let Err(retry_in) = self.send_limiter.check().await {
+            return Err(SendFailure::RateLimited(retry_in));
+        }
+
+        let req = SendEmailRequest {
+            from: sender.as_from_header(),
+            to: params.to,
+            subject: params.subject,
+            text: params.text,
+            html: params.html,
+            cc: params.cc,
+            bcc: params.bcc,
+            reply_to: params.reply_to,
+        };
+
+        match self.resend.send_email(&req).await {
+            Ok(resp) => Ok(SendOutcome {
+                id: resp.id,
+                from: sender.email.clone(),
+            }),
+            Err(e) => Err(SendFailure::Upstream(format!("Resend API error: {e:#}"))),
+        }
+    }
 }
 
 #[tool_router]
@@ -90,42 +201,14 @@ impl EmailService {
         &self,
         Parameters(params): Parameters<SendEmailParams>,
     ) -> Result<CallToolResult, McpError> {
-        let Some(sender) = senders::resolve(&self.senders, &params.from) else {
-            return Ok(CallToolResult::error(vec![ContentBlock::text(format!(
-                "Unknown sender '{}'. Call list_senders to see available senders.",
-                params.from
-            ))]));
-        };
-        if let Err(msg) = validation::validate_send(&params) {
-            return Ok(CallToolResult::error(vec![ContentBlock::text(format!(
-                "Validation failed: {msg}"
-            ))]));
-        }
-        if let Err(retry_in) = self.send_limiter.check().await {
-            return Ok(CallToolResult::error(vec![ContentBlock::text(format!(
-                "Rate limit exceeded: max {MAX_SENDS_PER_MINUTE} emails/minute, retry in {retry_in}s."
-            ))]));
-        }
-
-        let req = SendEmailRequest {
-            from: sender.as_from_header(),
-            to: params.to,
-            subject: params.subject,
-            text: params.text,
-            html: params.html,
-            cc: params.cc,
-            bcc: params.bcc,
-            reply_to: params.reply_to,
-        };
-
-        match self.resend.send_email(&req).await {
-            Ok(resp) => Ok(CallToolResult::success(vec![ContentBlock::text(format!(
+        match self.send_direct(params).await {
+            Ok(outcome) => Ok(CallToolResult::success(vec![ContentBlock::text(format!(
                 "Email sent from {}.\nResend id: {}\nUse get_email_status with this id to check delivery.",
-                sender.email, resp.id
+                outcome.from, outcome.id
             ))])),
-            Err(e) => Ok(CallToolResult::error(vec![ContentBlock::text(format!(
-                "Resend API error: {e:#}"
-            ))])),
+            Err(err) => Ok(CallToolResult::error(vec![ContentBlock::text(
+                err.message(),
+            )])),
         }
     }
 

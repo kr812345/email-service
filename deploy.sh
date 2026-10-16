@@ -84,6 +84,6 @@ fi
 info "Deployed. Point your reverse proxy at $ADDR, e.g. Caddy:"
 echo "    email.itskrishna.live"
 echo "    reverse_proxy $ADDR"
-echo "  → landing page at https://<domain>/  ·  MCP endpoint at https://<domain>/mcp"
+echo "  → landing page at https://<domain>/  ·  MCP at https://<domain>/mcp  ·  REST at POST https://<domain>/send"
 echo
 info "First time on this VPS? Also run:  pm2 startup   # survive reboots"

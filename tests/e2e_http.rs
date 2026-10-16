@@ -251,3 +251,66 @@ async fn http_mode_requires_token() {
         "server must refuse HTTP mode without MCP_AUTH_TOKEN"
     );
 }
+
+#[tokio::test]
+async fn direct_rest_post_send_flow() {
+    let mock = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/emails"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"id": "rest-send-id-1"})))
+        .expect(1)
+        .mount(&mock)
+        .await;
+
+    let mut server = HttpServer::spawn(&mock.uri()).await;
+    let client = reqwest::Client::new();
+    let send_url = format!("{}/send", server.base);
+
+    // Unauthenticated POST /send must be rejected
+    let r = client
+        .post(&send_url)
+        .json(&json!({
+            "from": "me",
+            "to": "someone@example.com",
+            "subject": "Direct POST",
+            "text": "hello via direct REST POST"
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(r.status(), 403);
+
+    // Authenticated POST /send (with single string `to`) succeeds
+    let r = client
+        .post(&send_url)
+        .bearer_auth(AUTH_TOKEN)
+        .json(&json!({
+            "from": "me",
+            "to": "someone@example.com",
+            "subject": "Direct POST",
+            "text": "hello via direct REST POST"
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(r.status(), 200);
+    let body: Value = r.json().await.unwrap();
+    assert_eq!(body["ok"], true);
+    assert_eq!(body["id"], "rest-send-id-1");
+    assert_eq!(body["from"], "alice@example.com");
+
+    // Authenticated GET /senders returns sender registry
+    let r = client
+        .get(format!("{}/senders", server.base))
+        .bearer_auth(AUTH_TOKEN)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(r.status(), 200);
+    let senders_body: Value = r.json().await.unwrap();
+    assert_eq!(senders_body["ok"], true);
+    assert_eq!(senders_body["senders"][0]["email"], "alice@example.com");
+
+    server.kill().await;
+    mock.verify().await;
+}

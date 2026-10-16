@@ -2,7 +2,7 @@
 name = "email_service"
 version = "0.1.0"
 edition = "2024"
-description = "MCP server that lets AI agents send email through Resend — configurable senders, strict validation, rate limiting, zero hardcoded addresses"
+description = "MCP and REST server that lets AI agents and backend apps send email through Resend — configurable senders, strict validation, rate limiting, zero hardcoded addresses"
 license = "MIT"
 keywords = ["mcp", "model-context-protocol", "email", "resend", "ai-agent"]
 categories = ["network-programming", "email"]

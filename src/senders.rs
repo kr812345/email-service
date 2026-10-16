@@ -4,11 +4,11 @@
 use std::path::Path;
 
 use anyhow::{Context, bail};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::validation;
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Sender {
     /// Short handle used as `from` in send_email (e.g. "me", "support").
     pub id: String,
